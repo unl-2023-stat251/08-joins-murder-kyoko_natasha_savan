@@ -1,0 +1,124 @@
+---
+title: "Homework 8: Joins and Summaries"
+author: "Kyoko and Natasha"
+format: html
+categories: hw
+---
+
+This week, you'll be using table joins to solve a murder mystery.
+
+# Instructions
+Northwestern University's Knight lab created a SQL murder mystery to help users sharpen their database skills by solving the crime that happened at SQL city. There are tables with different pieces of information - social media checkins, people, drivers licenses, crime scene reports, police interviews, and more. 
+
+![Database schema](https://mystery.knightlab.com/schema.png)
+
+Pick R or python, and solve the murder mystery, showing **all of your work in this document**. 
+
+Your solution must be **reproducible** -- that is, you should use dplyr verbs, table joins, etc. to solve the mystery, rather than just looking through the tables yourselves. Your code must execute properly and stand alone.
+
+**For 5 bonus points, when you're finished in one language, write equivalent code in the other language to solve the problem.**
+
+When you are finished with the assignment: 
+
+1. Save the file as index.qmd and compile it, making sure all of your code runs.
+2. Enter the name of the guilty party on Canvas to submit the homework assignment.
+
+Note that you should be able to do this entire mystery with only about 3 filter statements (including the one below to get you started). 
+
+Try to focus on using **filtering joins** instead of filter statements where possible in this assignment.
+
+# Setup
+
+## R
+
+```{r db-setup-r, eval = F}
+# you can do the assignment using the database, if you want, 
+# or you can use the code below to read in each table separately.
+library(RSQLite)
+library(DBI)
+# Your database connection code goes here. Store the connection as con 
+con <- dbConnect(RSQLite::SQLite(), "sql-murder-mystery.db")
+# close the connection when you're done
+dbDisconnect(con)
+```
+
+```{r table-setup-r, message = F}
+# This loads all of the tables into R data frame objects. 
+# You can also just use the database connection above.
+# You don't need to understand what this code does to run it :)
+if (!"purrr" %in% installed.packages()) {
+  install.packages("purrr")
+}
+# Load all tables from CSV
+table_names <- c("crime_scene_report", 
+                 "drivers_license", 
+                 "facebook_event_checkin",
+                 "get_fit_now_check_in", 
+                 "get_fit_now_member", 
+                 "income", 
+                 "interview",
+                 "person")
+url_base <- "https://raw.githubusercontent.com/srvanderplas/unl-stat850/main/data/sql-murder/"
+# For each table name, read the tables in and store them as the name of the table
+purrr::walk(table_names, function(x) {
+  assign(x, readr::read_csv(paste0(url_base, x, ".csv")), envir = .GlobalEnv)
+})
+```
+
+
+
+## Python
+
+```{python table-setup-py, eval = F}
+import pandas as pd
+import sqlite3
+# Read sqlite query results into a pandas DataFrame
+con = sqlite3.connect("sql-murder-mystery.db")
+crime_scene_report = pd.read_sql_query("SELECT * from crime_scene_report", con)
+drivers_license = pd.read_sql_query("SELECT * from drivers_license", con)
+facebook_event_checkin = pd.read_sql_query("SELECT * from facebook_event_checkin", con)
+get_fit_now_check_in = pd.read_sql_query("SELECT * from get_fit_now_check_in", con)
+get_fit_now_member = pd.read_sql_query("SELECT * from get_fit_now_member", con)
+income = pd.read_sql_query("SELECT * from income", con)
+interview = pd.read_sql_query("SELECT * from interview", con)
+person = pd.read_sql_query("SELECT * from person", con)
+# Verify that result of SQL query is stored in the dataframe
+print(crime_scene_report.head())
+con.close()
+```
+
+
+## Getting Started 
+
+To get you started, I'll set you up in the right place. 
+
+
+> A crime has taken place and the detective needs your help. The detective gave you the crime scene report, but you somehow lost it. You vaguely remember that the crime was a *murder* that occurred sometime on *Jan.15, 2018* and that it took place in *SQL City*. Start by retrieving the corresponding crime scene report from the police department’s database.
+
+```{r}
+library(dplyr)
+library(tidyr)
+
+crime_of_interest <- crime_scene_report %>%
+  filter(date == "20180115", city == "SQL City", type == "murder")
+crime_of_interest$description
+```
+
+
+# Solution
+
+Document each productive step of your investigation here.
+
+```{r}
+library(stringr)
+witnesses <- person %>%
+  filter(address_street_name %in% c("Northwestern Dr", "Franklin Ave") & (address_number == max(address_number) | str_detect(name,"Annabel")))
+
+witness.interviews <- left_join(witnesses, interview, by = c("id" = "person_id"))
+witness.interviews$transcript
+
+annabel.checkin <- get_fit_now_member %>%
+  inner_join(witnesses, by = c("person_id" = "id")) %>%
+  semi_join(get_fit_now_check_in, ., by = c("membership_id" = "id"))
+
+```
