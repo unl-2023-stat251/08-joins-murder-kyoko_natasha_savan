@@ -1,6 +1,6 @@
 ---
 title: "Homework 8: Joins and Summaries"
-author: "Your Name"
+author: "Kyoko, Natasha, and Savan"
 format: html
 categories: hw
 ---
@@ -108,3 +108,41 @@ crime_of_interest$description
 # Solution
 
 Document each productive step of your investigation here.
+
+```{r}
+library(stringr)
+#Who are our witnesses
+witnesses <- person %>%
+  filter(address_street_name %in% c("Northwestern Dr", "Franklin Ave") & (address_number == max(address_number) | str_detect(name,"Annabel")))%>%
+  left_join(interview, by = c("id" = "person_id"))
+#What did they see?
+witnesses$transcript
+
+#when was annabel there?
+annabel.checkin <- get_fit_now_member %>%
+  inner_join(witnesses, by = c("person_id" = "id")) %>%
+  semi_join(get_fit_now_check_in, ., by = c("membership_id" = "id"))
+annabel.checkin$check_in_date
+
+#Who matched Morty's description?
+gymsuspect <- get_fit_now_member %>%
+  filter(membership_status %in% c("gold"), str_detect(id, "^48Z")) %>%
+  left_join(person, by = c("person_id" = "id"))%>%
+  inner_join(drivers_license, by = c("license_id" = "id"))%>%
+  left_join(get_fit_now_check_in, by = c("id" = "membership_id"))%>%
+  left_join(interview, by = c("person_id" = "person_id"))
+gymsuspect$name.x
+#Was Jeremy at the gym when Annabel was?
+gymsuspect$check_in_date
+
+#What did he say?
+gymsuspect$transcript = annabel.checkin$check_in_date
+
+#who is the redhead woman?
+redhead_suspect <- drivers_license %>%
+  left_join(person, by = c("id" = "license_id")) %>%
+  left_join(facebook_event_checkin, by = c("id.y" = "person_id"))%>%
+  filter(event_name %in% c("SQL Symphony Concert"))%>%
+  filter(hair_color %in% c("red") & gender %in% c("female") & car_make %in% c("Tesla") & str_detect(car_model, "S"))
+redhead_suspect$name[1]
+```
